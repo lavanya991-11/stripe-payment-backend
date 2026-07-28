@@ -118,7 +118,10 @@
 
             var rows = [
                 ['Order No', data.orderNo],
-                ['Customer', data.customerName || meta.customer_name || meta.customerName],
+                // Prefer the Business Central customer name over the billing name the
+                // payer typed into Stripe - on an order confirmation the account the
+                // order belongs to is the meaningful one.
+                ['Customer', meta.customer_name || meta.customerName || data.customerName],
                 ['Email', data.customerEmail],
                 ['Amount', money(data.amount, data.currency)],
                 ['Card', cardText],
