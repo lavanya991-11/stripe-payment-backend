@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payment Status</title>
+    <style>
+        body {
+            font-family: Segoe UI, Arial, sans-serif;
+            background: #f6f8fa;
+            margin: 0;
+            padding: 40px 16px;
+        }
+
+        .card {
+            max-width: 520px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 10px;
+            padding: 32px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, .08);
+            text-align: center;
+        }
+
+        .icon {
+            font-size: 56px;
+            line-height: 1;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin: 16px 0 8px;
+        }
+
+        h1.ok {
+            color: #16794c;
+        }
+
+        h1.warn {
+            color: #a15c00;
+        }
+
+        h1.bad {
+            color: #b42318;
+        }
+
+        p.msg {
+            color: #555;
+            margin: 0 0 24px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        td {
+            padding: 8px 6px;
+            border-bottom: 1px solid #eee;
+        }
+
+        td.k {
+            color: #666;
+            width: 45%;
+        }
+
+        td.v {
+            font-weight: 600;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <div class="icon" id="icon">⏳</div>
+        <h1 id="title">Checking your payment…</h1>
+        <p class="msg" id="message">Please wait while we confirm this with Stripe.</p>
+        <table id="details" class="hidden"></table>
+    </div>
+
+    <script>
+        // Never trust the redirect alone - landing on this URL only means Stripe sent the
+        // browser here, not that the charge succeeded. Ask our own backend, which asks
+        // Stripe, before telling the customer anything.
+        var params = new URLSearchParams(window.location.search);
+        var sessionId = params.get('session_id');
+
+        var iconEl = document.getElementById('icon');
+        var titleEl = document.getElementById('title');
+        var msgEl = document.getElementById('message');
+        var detailsEl = document.getElementById('details');
+
+        function render(icon, cls, title, message) {
+            iconEl.textContent = icon;
+            titleEl.className = cls;
+            titleEl.textContent = title;
+            msgEl.textContent = message;
+        }
+
+        function money(minorAmount, currency) {
+            if (minorAmount === null || minorAmount === undefined) return '-';
+            var value = (minorAmount / 100).toFixed(2);
+            return (currency ? currency.toUpperCase() + ' ' : '') + value;
+        }
+
+        function showDetails(data) {
+            var meta = data.metadata || {};
+            var cardText = data.cardBrand
+                ? data.cardBrand.toUpperCase() + ' •••• ' + (data.cardLast4 || '')
+                : null;
+
+            var rows = [
+                ['Order No', data.orderNo],
+                ['Customer', data.customerName || meta.customer_name || meta.customerName],
+                ['Email', data.customerEmail],
+                ['Amount', money(data.amount, data.currency)],
+                ['Card', cardText],
+                ['Stripe Status', data.paymentStatus]
+            ];
+
+            var html = '';
+            rows.forEach(function (r) {
+                if (r[1]) {
+                    html += '<tr><td class="k">' + r[0] + '</td><td class="v">' + r[1] + '</td></tr>';
+                }
+            });
+
+            if (html) {
+                detailsEl.innerHTML = html;
+                detailsEl.classList.remove('hidden');
+            }
+        }
+
+        if (!sessionId) {
+            render('⚠️', 'warn', 'Nothing to confirm',
+                'No payment session was supplied, so we cannot confirm a payment.');
+        } else {
+            fetch('/api/stripe/payment-status/' + encodeURIComponent(sessionId))
+                .then(function (res) {
+                    return res.json().then(function (body) {
+                        return { ok: res.ok, body: body };
+                    });
+                })
+                .then(function (result) {
+                    if (!result.ok) {
+                        throw new Error(result.body.error || 'Could not reach Stripe.');
+                    }
+
+                    var data = result.body;
+                    showDetails(data);
+
+                    if (data.paymentStatus === 'paid' || data.paymentStatus === 'no_payment_required') {
+                        render('✅', 'ok', 'Payment Successful',
+                            'Thank you. Your payment has been received and your order is being updated.');
+                    } else {
+                        // Landing here unpaid usually means the customer backed out of a
+                        // delayed method (e.g. Bacs Direct Debit) before it settled.
+                        render('⚠️', 'warn', 'Payment Not Completed',
+                            'Stripe has not confirmed this payment yet (status: ' + data.paymentStatus +
+                            '). If you were charged, it will appear shortly.');
+                    }
+                })
+                .catch(function (err) {
+                    render('❌', 'bad', 'Could Not Confirm Payment', err.message);
+                });
+        }
+    </script>
+</body>
+
+</html>

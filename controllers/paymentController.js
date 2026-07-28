@@ -57,6 +57,10 @@ exports.paymentSuccess = async (req, res) => {
         try {
 
             await bcService.updatePayment({
+                orderNo:
+                    session.client_reference_id ||
+                    session.metadata?.order_no ||
+                    session.metadata?.salesOrderNo,
                 sessionId: session.id,
                 paymentIntent: session.payment_intent,
                 amount: session.amount_total / 100,
@@ -156,6 +160,12 @@ exports.stripeWebhook = async (req, res) => {
                 try {
 
                     await bcService.updatePayment({
+                        // Without orderNo the Business Central URL is built as
+                        // ".../undefined" and the PATCH silently targets nothing.
+                        orderNo:
+                            session.client_reference_id ||
+                            session.metadata?.order_no ||
+                            session.metadata?.salesOrderNo,
                         sessionId: session.id,
                         paymentIntent: session.payment_intent,
                         amount: session.amount_total / 100,
