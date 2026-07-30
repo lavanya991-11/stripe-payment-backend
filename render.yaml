@@ -12,10 +12,10 @@ services:
     region: singapore
     buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /healthz
     envVars:
-      # Must equal the service's own https://<service>.onrender.com origin, no
-      # trailing slash - Stripe builds the success/cancel redirects from it.
+      # Optional. server.js falls back to Render's injected RENDER_EXTERNAL_URL,
+      # so leave this blank unless you are serving from a custom domain.
       - key: BASE_URL
         sync: false
       - key: STRIPE_SECRET_KEY
