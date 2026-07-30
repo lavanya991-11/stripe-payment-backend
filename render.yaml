@@ -6,6 +6,10 @@ services:
     name: stripe-payment-backend
     runtime: node
     plan: free
+    branch: main
+    # Region is immutable once the service exists - changing it later means
+    # deleting and recreating the service (and its URL).
+    region: singapore
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /
