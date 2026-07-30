@@ -17,6 +17,28 @@ process.env.BASE_URL =
     (process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || '')
         .replace(/\/+$/, '');
 
+// Refuse to start on a BASE_URL that cannot work, rather than letting every
+// checkout fail one at a time with a Stripe error that names none of this. A
+// copied placeholder like https://<service>.onrender.com is the common case:
+// Stripe rejects angle brackets outright.
+if (process.env.BASE_URL) {
+    const badChars = /[<>]/.test(process.env.BASE_URL);
+    const parsed = badChars ? null : (() => {
+        try { return new URL(process.env.BASE_URL); } catch { return null; }
+    })();
+
+    if (badChars || !parsed || !/^https?:$/.test(parsed.protocol)) {
+        console.error(
+            `BASE_URL is not a usable address: "${process.env.BASE_URL}"\n` +
+            'Set it to where the customer\'s browser reaches this server - ' +
+            'http://localhost:5000 when testing here, or your https://...onrender.com ' +
+            'address once deployed. On Render leave it unset and RENDER_EXTERNAL_URL ' +
+            'supplies it. Placeholder text in angle brackets is never a real value.'
+        );
+        process.exit(1);
+    }
+}
+
 const app = express();
 
 // The webhook must be mounted BEFORE express.json(): Stripe signs the raw bytes, so
