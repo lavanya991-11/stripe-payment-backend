@@ -1,0 +1,28 @@
+# Render Blueprint. PORT is deliberately absent: Render injects it and server.js
+# already reads process.env.PORT. Every var below is marked sync:false because the
+# values are secrets - set them in the Render dashboard, never in this file.
+services:
+  - type: web
+    name: stripe-payment-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      # Must equal the service's own https://<service>.onrender.com origin, no
+      # trailing slash - Stripe builds the success/cancel redirects from it.
+      - key: BASE_URL
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: BC_COMPANY
+        sync: false
+      - key: BC_ENVIRONMENT
+        sync: false
+      - key: TENANT_ID
+        sync: false
