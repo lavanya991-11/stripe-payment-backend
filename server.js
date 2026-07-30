@@ -13,9 +13,26 @@ const errorHandler = require('./middelware/errorhandeler');
 // because BASE_URL was forgotten. An explicit BASE_URL still wins, so a custom
 // domain overrides it. Trailing slashes are trimmed because the callers append
 // "/payment-success" directly and "//payment-success" matches no route.
-process.env.BASE_URL =
-    (process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || '')
-        .replace(/\/+$/, '');
+const explicitBase = (process.env.BASE_URL || '').replace(/\/+$/, '');
+const hostedBase = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '');
+
+// A localhost BASE_URL left over from local testing is never right on a hosted
+// deploy - it sends the paying customer back to their own machine, where nothing
+// is listening. The host's own URL wins over it rather than letting one stale
+// dashboard value silently break every checkout.
+const baseIsLocal = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(explicitBase);
+
+if (hostedBase && baseIsLocal) {
+    console.warn(
+        `Ignoring BASE_URL="${explicitBase}": it points at localhost, but this is a ` +
+        `hosted deploy. Using ${hostedBase} instead. Remove BASE_URL from the ` +
+        'dashboard to silence this warning.'
+    );
+}
+
+process.env.BASE_URL = (hostedBase && baseIsLocal)
+    ? hostedBase
+    : (explicitBase || hostedBase);
 
 // Refuse to start on a BASE_URL that cannot work, rather than letting every
 // checkout fail one at a time with a Stripe error that names none of this. A
