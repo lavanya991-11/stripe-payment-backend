@@ -1,6 +1,13 @@
-# Render Blueprint. PORT is deliberately absent: Render injects it and server.js
-# already reads process.env.PORT. Every var below is marked sync:false because the
-# values are secrets - set them in the Render dashboard, never in this file.
+# Render Blueprint - read by Render only, and only via New > Blueprint. Creating
+# the service manually instead ignores this file entirely.
+#
+# PORT is deliberately absent: Render injects it and server.js already reads
+# process.env.PORT. Overriding it here would fail the health check.
+#
+# sync:false means Render prompts for the value at Blueprint creation and never
+# stores it here - required for the secrets, and used for the rest so no value is
+# baked into the repo. Note Render only prompts on FIRST creation; later blueprint
+# updates skip these, so fill them all in the first time.
 services:
   - type: web
     name: stripe-payment-backend
